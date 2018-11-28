@@ -8,8 +8,9 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-//	pgl "github.com/Fantom-foundation/pgLachesis"
-	pgl "github.com/BrianActon/pgLachesis"
+
+//	pgl "github.com/Fantom-foundation/pgLachesisAPI/pgLachesis"
+	pgl "github.com/BrianActon/pgLachesisAPI/pgLachesis"
 )
 
 
