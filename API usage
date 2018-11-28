@@ -1,0 +1,149 @@
+
+
+
+/*****************************************************************************************************/
+get balance
+/*********/
+
+GET
+http://127.0.0.1:8105/getBalance?account=account1234&address=address1234
+
+
+Returns:
+{
+    "Account": "account1234",
+    "Address": "address1234",
+    "PublicKey": "",
+    "PrivateKey": "",
+    "Balance": 1234.22
+}
+
+
+/*****************************************************************************************************/
+fetch blocks
+/*********/
+
+startblock=0 for very latest list of blocks - current limit per page = 20
+startblock=blocknumber  will be the starting point to go either backwards or forwards by 20 blocks
+
+page = 0 :  go from blockindex + 19 blocks older         (DESC)   
+page = 1 :  go from blockindex + 19 blocks newer         (ASC)
+
+*NB: Page is ignored if startblock=0
+
+GET
+
+http://127.0.0.1:8105/fetchBlocks?startblock=123456&page=1
+
+
+Returns:
+[
+    {
+        "Index": 12345678,
+        "RoundReceived": 3,
+        "FrameHash": "0xf90844c015c7a15d47b14728e75750e334a435fc",
+        "Block_Datetime": "2018-11-26 03:58:26.870001+02"
+    },
+    {
+        "Index": 12345678,
+        "RoundReceived": 3,
+        "FrameHash": "0xf90844c015c7a15d47b14728e75750e334a435fc",
+        "Block_Datetime": "2018-11-26 04:00:31.62788+02"
+    },
+    {
+        "Index": 12345678,
+        "RoundReceived": 3,
+        "FrameHash": "0xf90844c015c7a15d47b14728e75750e334a435fc",
+        "Block_Datetime": "2018-11-26 04:50:36.424591+02"
+    }
+]
+
+
+
+/*****************************************************************************************************/
+fetch single block
+/****************/
+
+for latest block  blockindex=0
+for specific block , blockindex=12345678
+
+GET
+
+http://127.0.0.1:8105/fetchSingleBlock?blockindex=12345678
+
+
+Returns:
+{
+    "Index": 12345678,
+    "RoundReceived": 3,
+    "FrameHash": "0xf90844c015c7a15d47b14728e75750e334a435fc",
+    "Block_Datetime": "2018-11-26 03:58:26.870001+02"
+}
+
+
+
+
+/*****************************************************************************************************/
+fetch Transactions
+/****************/
+
+blockid = 0 : for very latest list of Transaction regardless of associated block 
+
+blockid = blocknumber : for very latest list of Transaction for a specific block 
+		- current limit per page = 20
+		- These are just transactions and not associated to any block 
+
+page = 0 :  go from transactionID + 19 blocks older         (DESC)   
+page = 1 :  go from transactionID + 19 blocks newer         (ASC)
+
+
+GET
+
+http://127.0.0.1:8105/fetchTransList?blockid=123456&transactionid=8fd8f8f8&page=1
+
+
+Returns:
+[
+    {
+        "Index": 12345678,
+        "RoundReceived": 3,
+        "FrameHash": "0xf90844c015c7a15d47b14728e75750e334a435fc",
+        "Block_Datetime": "2018-11-26 03:58:26.870001+02"
+    },
+    {
+        "Index": 12345678,
+        "RoundReceived": 3,
+        "FrameHash": "0xf90844c015c7a15d47b14728e75750e334a435fc",
+        "Block_Datetime": "2018-11-26 04:00:31.62788+02"
+    },
+    {
+        "Index": 12345678,
+        "RoundReceived": 3,
+        "FrameHash": "0xf90844c015c7a15d47b14728e75750e334a435fc",
+        "Block_Datetime": "2018-11-26 04:50:36.424591+02"
+    }
+]
+
+
+
+/*****************************************************************************************************/
+fetch single Transacion
+/*********************/
+
+for latest transaction,   transactionid=0
+for specific transaction , transactionid=9f8ev9e8rv89e9v
+
+GET
+
+http://127.0.0.1:8105/fetchSingleTrans?transactionid=0
+
+http://127.0.0.1:8105/fetchSingleTrans?transactionid=9f8ev9e8rv89e9v
+
+
+Returns:
+{
+    "Index": 12345678,
+    "RoundReceived": 3,
+    "FrameHash": "0xf90844c015c7a15d47b14728e75750e334a435fc",
+    "Block_Datetime": "2018-11-26 03:58:26.870001+02"
+}
