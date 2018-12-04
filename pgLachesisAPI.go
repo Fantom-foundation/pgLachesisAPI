@@ -38,8 +38,8 @@ func main() {
     muxin.HandleFunc("/fetchSingleTrans", fetchSingleTrans).Methods("GET")   	// done
 
 // summary
-    muxin.HandleFunc("/writeSummary", writeSummary).Methods("POST")				// not done
-    muxin.HandleFunc("/fetchSummary", fetchSummary).Methods("GET")				// not done
+    muxin.HandleFunc("/writeSummary", writeSummary).Methods("POST")				// done
+    muxin.HandleFunc("/fetchSummary", fetchSummary).Methods("GET")				// done
 
     muxin.HandleFunc("/", nothing)                 
 
@@ -68,15 +68,6 @@ func nothing(w http.ResponseWriter , r *http.Request) {
 //**********************************************************************************
 // Create account - POST
 //**********************************************************************************
-type AccountStruct struct {
-	Account 		string `json:"account`
-	Address 		string `json:"address`
-	Balance 		string `json:"balance`
-	PublicKey 		string `json:"publickey`
-	PrivateKey 		string `json:"privatekey`
-	AccountDateTime string `json:"accountdatetime`
-}
-
 func createAccount(w http.ResponseWriter , r *http.Request) {
 
 	fmt.Println("createAccount")
@@ -87,7 +78,7 @@ func createAccount(w http.ResponseWriter , r *http.Request) {
 
     fmt.Println("body: ", string(body))
 
-    var as 	AccountStruct
+    var as 	pgl.AccountStruct
 
     err := json.Unmarshal(body, &as)
     if err != nil {
@@ -96,7 +87,7 @@ func createAccount(w http.ResponseWriter , r *http.Request) {
 
     fmt.Println("as: ", as.Account, as.Address)
 
-    err = pgl.WriteAccounts(as.Account, as.Address) 
+    err = pgl.WriteAccounts([]byte(as.Account), as.Address) 
     if err != nil {
     	fmt.Println("err:", err)
     	w.WriteHeader(http.StatusInternalServerError)
@@ -107,17 +98,39 @@ func createAccount(w http.ResponseWriter , r *http.Request) {
     }
 }
 
-//**********************************************************************************
-// Update account ????    - POST
 // Add address 
+//**********************************************************************************
+// Update account - POST
 // Update balance ?
 //**********************************************************************************
 func updateAccount(w http.ResponseWriter , r *http.Request) {
 
 	fmt.Println("updateAccount")
+
     len := r.ContentLength
     body := make([]byte, len)
     r.Body.Read(body)
+
+    fmt.Println("body: ", string(body))
+
+    var as 	pgl.AccountStruct
+
+    err := json.Unmarshal(body, &as)
+    if err != nil {
+    	fmt.Println("err:", err)
+    }
+
+    fmt.Println("as: ", as.Account, as.Address)
+
+    err = pgl.UpdateAccounts(as.Account, as.Address, as.Balance) 
+    if err != nil {
+    	fmt.Println("err:", err)
+    	w.WriteHeader(http.StatusInternalServerError)
+    	w.Write([]byte(err.Error()))
+    } else {
+    	w.WriteHeader(http.StatusOK)
+    	w.Write([]byte("200 OK"))
+    }
 }
 
 
@@ -404,7 +417,7 @@ func fetchSingleTrans(w http.ResponseWriter , r *http.Request) {
 	fmt.Println("pgLachesisAPI - fetchsingleTrans:", TransactionIDPG)
 	byt, err := json.Marshal(TransactionIDPG)
 
-	fmt.Println("pgLachesisAPI - fetchBlocks:", string(byt))
+	fmt.Println("pgLachesisAPI - fetchsingleTrans:", string(byt))
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -430,11 +443,29 @@ func writeSummary(w http.ResponseWriter , r *http.Request) {
 // Fetch details of most recent Transaction
 //**********************************************************************************
 func fetchSummary(w http.ResponseWriter , r *http.Request) {
-    len := r.ContentLength
-    body := make([]byte, len)
-    r.Body.Read(body)
-    fmt.Println(string(body))
+ 
+	fmt.Println("pgLachesisAPI - fetchSummary")
 
+	queryValues := r.URL.Query()
+	if len(queryValues) < 1 {
+		fmt.Println("Invalid query")
+	}
 
+	TransactionID    	:=  queryValues["transactionid"][0]
+
+	TransactionIDPG, err := pgl.ReadLatestTransaction(TransactionID)
+
+	if err != nil {
+		fmt.Println("ReadTransaction unsuccessful", err)
+	} 
+
+	fmt.Println("pgLachesisAPI - fetchSummary:", TransactionIDPG)
+	byt, err := json.Marshal(TransactionIDPG)
+
+	fmt.Println("pgLachesisAPI - fetchSummary:", string(byt))
+
+	w.Header().Set("Content-Type", "application/json")
+
+	w.Write(byt)
 
 }

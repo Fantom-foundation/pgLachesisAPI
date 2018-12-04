@@ -58,24 +58,36 @@ func init() {
 
 type AccountPG struct {
 	Account 	string
-	Address 	string
-	PublicKey 	string 			// Should we have these here?  
-	PrivateKey 	string			// They make up the 2 parts of the Address field above
+	Address 	string          
 	Balance 	float32
-}								
+	DateTime 	string
+}		
 
+type AccountStruct struct {
+	Account 		string `json:"account`
+	Address 		string `json:"address`
+	Balance 		float32 `json:"balance`
+	AccountDateTime string `json:"accountdatetime`
+}
+
+// Account represents an Ethereum account located at a specific location defined
+// by the optional URL field.
+//type Account struct {
+//	Address common.Address `json:"address"` // Ethereum account address derived from the key
+//	URL     URL            `json:"url"`     // Optional resource locator within a backend
+//}
 //**********************************************************************************
 //  Write Accounts
 //**********************************************************************************
-func WriteAccounts(account string, address string) error {
+func WriteAccounts(account []byte, address string) error {
 
 	fmt.Println("WriteAccounts in: ", account, address)
 	var apg  AccountPG
 
-	apg.Account = account
+	apg.Account = string(account)
 	apg.Address = address
 
-	q := fmt.Sprintf("INSERT INTO public.accounts(account, address, account_datetime) VALUES ($1, $2, NOW());")	
+	q := fmt.Sprintf("INSERT INTO public.accounts(account, address, balance, account_datetime) VALUES ($1, $2, 0, NOW());")	
 
 	_, err := Ppgsql.Exec(q, apg.Account, apg.Address)
 
@@ -165,7 +177,7 @@ func ReadAccountsBalance(account string, address string) (AccountPG, error) {
 //**********************************************************************************
 //  Update Accounts Balance
 //**********************************************************************************
-func UpdateAccounts(account []byte, address []byte, balance float32) error {
+func UpdateAccounts(account string, address string, balance float32) error {
 
 	fmt.Println("UpdateAccounts in: ", string(account))
 
@@ -255,14 +267,66 @@ func ReadAccountTrans(account []byte) ([][]byte, error) {
 }
 
 
+//	fields := map[string]interface{}{
+//		"blockHash":         blockHash,
+//		"blockNumber":       hexutil.Uint64(blockNumber),
+//		"transactionHash":   hash,
+//		"transactionIndex":  hexutil.Uint64(index),
+//		"from":              from,
+//		"to":                tx.To(),
+//		"gasUsed":           hexutil.Uint64(receipt.GasUsed),
+//		"cumulativeGasUsed": hexutil.Uint64(receipt.CumulativeGasUsed),
+//		"contractAddress":   nil,
+//		"logs":              receipt.Logs,
+//		"logsBloom":         receipt.Bloom,
+//	}
 
+type TranFields struct {
+	BlockHash 				string
+	BlockNumber 			uint64
+	TransactionHash 		string
+	TransactionIndex        uint64
+	From 					string
+	To 						string	
+	GasUsed                 uint64
+	CumulativeGasUsed       uint64
+	ContractAddress         string
+	Logs                    interface{} //  receipt.Logs,
+	LogsBloom          		interface{} //  receipt.Bloom,
+	}
 
 //**********************************************************************************
 // Write Transactions
 //**********************************************************************************
-	//  need to cater for pages.
-	//  Can either 
-func WriteTransactions(Transactions  [][]byte) (string, error) {
+func WriteTransactions(t  TranFields) error {
+
+	fmt.Println("WriteTransactions in: ", t.BlockHash)
+
+	var err error
+
+	q := `INSERT INTO transactions(
+ 				transaction,
+ 				tx_from,
+ 				tx_to,
+				GasUsed,   
+ 				transaction_datetime) 
+ 			VALUES ($1, $2, $3, $4, $R5, $6 NOW());	`
+
+	
+	_, err = Ppgsql.Exec(q, t.TransactionHash, t.From, t.To, t.GasUsed)
+	if err != nil {
+		fmt.Println("fail to write transaction ", t.TransactionHash, "error: ", err)
+	}
+
+	return err
+}
+
+
+
+//**********************************************************************************
+// Write BlockTransactions
+//**********************************************************************************
+func WriteBlockTransactions(Transactions  [][]byte) (string, error) {
 
 	fmt.Println("WriteTransactions in: ", string(Transactions[0][:]))
 
@@ -270,7 +334,7 @@ func WriteTransactions(Transactions  [][]byte) (string, error) {
 	var err error
 
 
-	q := `INSERT INTO transactions(transaction, transactionblockid, transaction_datetime) VALUES ($1, $2, NOW());	`
+	q := `INSERT INTO blocktransactions(transaction, transactionblockid, transaction_datetime) VALUES ($1, $2, NOW());	`
 
 	
 	for i := 0; i < len(Transactions); i++ {
@@ -474,7 +538,7 @@ func WriteBlock(block BlockBody) error {
 	pbblock.StateHash 		= string(block.StateHash)
 	pbblock.FrameHash 		= string(block.FrameHash)
 
-	transactionBlockID, err :=  WriteTransactions(block.Transactions)
+	transactionBlockID, err :=  WriteBlockTransactions(block.Transactions)
 
 	if err != nil {
 		fmt.Println("Error: ", err)
@@ -490,7 +554,7 @@ func WriteBlock(block BlockBody) error {
 				VALUES ($1, $2, $3, $4, $5, NOW());	`
 
 
-	   // check if can use pbblock.RoundReceived or if we need the count returned from
+	   // check if can use pbblock.RoundReceived or if we need the count returned from WriteTransactions
 	 	_, err = Ppgsql.Exec(q, pbblock.Index, pbblock.FrameHash, "", 
 	 							transactionBlockID, pbblock.RoundReceived )  
 
@@ -616,63 +680,98 @@ func ReadBlock(block int) ( BlockStruct, error) {
 
 
 //**********************************************************************************
-// Write Summary
+// Update Summary fields
 //**********************************************************************************
-/*
-func WriteSummary(summary ) (string, error) {
-
-	fmt.Println("WriteTransactions in: ", string(Transactions[0][:]))
-
-	transactionblockid := rand.Int63()
-	var err error
-
-	for i := 0; i < len(Transactions); i++ {
-		_, err = Ppgsql.Exec("INSERT INTO transactions values ( ?, ?, NOW() );", 
-								string(Transactions[i]), transactionblockid)
-		if err != nil {
-			fmt.Println("fail to write transaction ", string(Transactions[i]), "error: ", err)
-			break
-		}
-	}
-
-	return strconv.FormatInt(transactionblockid, 10), err
+type SummaryStruct struct {
+	Market_cap     		float64
+	BTC_ETH_amount 		float64
+	BTC_ETH_at     		float64
+	BTC_ETH_movement 	float64
+ 	Lastblockno 		int64
+ 	Hashrate 			float64
+ 	Transactions 		float64
+ 	Network_difficulty 	float32
 }
-*/
+
+func UpdateSummaryBlock(bi int64, hr float64, t float64, nd float32)  error {
+
+	fmt.Println("UpdateSummaryBlock in: ", bi)
+
+	q := ` UPDATE summary, 
+			set lastblockno = $1, 
+			set hashrate = $2, 
+			set transactions = $3, 
+			set network_difficulty = $4, 
+			set lastUpdate = NOW();`
+
+	_, err := Ppgsql.Exec(q, bi, hr, t, nd)
+
+	return err
+}
+
+
+func UpdateSummaryBTC(btc_amount float64, btc_at float64, btc_mvmnt float64)  error {
+
+	fmt.Println("UpdateSummaryBTC in: ", btc_amount)
+
+	q := ` UPDATE summary, 
+			SET BTC_ETH_amount = $1, 
+				BTC_ETH_at REAL = $2,
+ 				BTC_ETH_movement = $3;`
+
+	_, err := Ppgsql.Exec(q, btc_amount, btc_at, btc_mvmnt)
+
+	return err
+}
+
+
+func UpdateSummaryMarketcap(mc float64)  error {
+
+	fmt.Println("UpdateSummaryMarketcap in: ", mc)
+
+	q := ` UPDATE summary, set Market_cap = $1;`
+
+	_, err := Ppgsql.Exec(q, mc)
+
+	return err
+}
+
 
 //**********************************************************************************
 // Fetch summary details
 //**********************************************************************************
 
-/*
-func ReadSummary() (Summary, error) {
+func ReadSummary() (SummaryStruct, error) {
 
 	fmt.Println("ReadSummary in: ")
 
-	var s Summary
+	var pbsum SummaryStruct
 
-	row, err := Ppgsql.Query("SELECT ... from summary;")
+ 	q := fmt.Sprintf("SELECT ...  FROM summary ;")
+ 	
+	fmt.Println("q: ", q)
+
+	row := Ppgsql.QueryRow(q)
+
+	err := row.Scan(&pbsum.Market_cap, 
+					&pbsum.BTC_ETH_amount,
+					&pbsum.BTC_ETH_at, 
+					&pbsum.BTC_ETH_movement, 
+					&pbsum.Lastblockno,
+					&pbsum.Hashrate, 
+					&pbsum.Transactions, 
+					&pbsum.Network_difficulty)
+
 	if err != nil {
-		fmt.Println("Error reading summary db: ", err)
-	} 
-	defer row.Close()
+		fmt.Println("Error getting data from block:", err)
+	} else {
+		fmt.Println("Block: ", pbsum)
+	}
+			
+	fmt.Println("pbsum:", pbsum)	
 
-	err = row.Scan(&ReadSummary)
-
- 	return s, err
+	return pbsum, err
 }
-*/
-
-
-/*
-//**********************************************************************************
-//  Update Transactions for a specific block
-// um...?  Unless we know we are only getting a complete block
-//**********************************************************************************
-//func UpdateSummary(transactionblockid string, Transactions  [][]byte) (AccountPG, error) {
-
-//}
-
-*/
 
 
 //*****************************************************************************************
@@ -698,8 +797,15 @@ retryAccount:
 				fmt.Println("Create accounts error: ", err)
 			}
 		} else {
-			triedAgain = true
-			goto retryAccount
+			if triedAgain == false {
+
+				triedAgain = true
+
+				goto retryAccount
+
+			} else {
+				fmt.Println("Problem creating summary table - Alert admin ")
+			}
 		}
 	} else {
 		fmt.Println("accounts exists")
@@ -724,8 +830,48 @@ retryTransaction:
 				fmt.Println("Create transaction error: ", err)
 			}
 		} else {
-			triedAgain = true
-			goto retryTransaction
+			if triedAgain == false {
+
+				triedAgain = true
+
+				goto retryTransaction
+
+			} else {
+				fmt.Println("Problem creating transaction table - Alert admin ")
+			}
+		}
+	} else {
+		fmt.Println("transaction exists")
+	}
+
+
+	triedAgain = false
+
+retryBlockTransaction:	
+	//  test blocktransaction table exists
+	err = HelloBlockTransaction()
+	if err != nil {
+		fmt.Println("blocktransaction table doesnt exist")
+		fmt.Println("Creating blocktransaction table")
+
+		err = CreateBlockTransaction()
+
+		if err != nil {
+			if err.Error() == `pq: relation "blocktransaction" already exists` {
+				fmt.Println("blocktransaction table: ", err)
+			} else {
+				fmt.Println("Create blocktransaction error: ", err)
+			}
+		} else {
+			if triedAgain == false {
+
+				triedAgain = true
+
+				goto retryBlockTransaction
+
+			} else {
+				fmt.Println("Problem creating blocktransaction table - Alert admin ")
+			}
 		}
 	} else {
 		fmt.Println("transaction exists")
@@ -750,8 +896,15 @@ retryactran:
 				fmt.Println("Create accounttrans error: ", err)
 			}
 		} else {
-			triedAgain = true
-			goto retryactran
+			if triedAgain == false {
+
+				triedAgain = true
+
+				goto retryactran
+
+			} else {
+				fmt.Println("Problem creating summary table - Alert admin ")
+			}
 		}
 	} else {
 		fmt.Println("accounttrans table exists")
@@ -776,11 +929,51 @@ retryBlock:
 				fmt.Println("Create blocks error: ", err)
 			}
 		} else {
-			triedAgain = true
-			goto retryBlock
+			if triedAgain == false {
+
+				triedAgain = true
+
+				goto retryBlock
+
+			} else {
+				fmt.Println("Problem creating summary table - Alert admin ")
+			}
 		}
 	} else {
 		fmt.Println("blocks table exists")
+	}
+
+
+	triedAgain = false
+
+retrySummary:	
+	//  test transaction table exists
+	err = HelloSummary()
+	if err != nil {
+		fmt.Println("blocks table doesnt exist")
+		fmt.Println("Creating blocks table")
+
+		err = CreateSummary()
+
+		if err != nil {
+			if err.Error() == `pq: relation "summary" already exists` {
+				fmt.Println("summary table: ", err)
+			} else {
+				fmt.Println("Create summary error: ", err)
+			}
+		} else {
+			if triedAgain == false {
+
+				triedAgain = true
+
+				goto retrySummary
+
+			} else {
+				fmt.Println("Problem creating summary table - Alert admin ")
+			}
+		}
+	} else {
+		fmt.Println("summary table exists")
 	}
 
 
@@ -807,6 +1000,13 @@ func HelloTransaction() error {
 	
 }
 
+func HelloBlockTransaction() error {
+	_, err := Ppgsql.Query("SELECT transaction from blocktransactions LIMIT 1")
+
+	return err
+	
+}
+
 func HelloAccountTrans() error {
 	_, err := Ppgsql.Query("SELECT account from accounttransactions LIMIT 1")
 
@@ -821,12 +1021,19 @@ func HelloBlock() error {
 	
 }
 
+func HelloSummary() error {
+	_, err := Ppgsql.Query("SELECT market_cap from summary LIMIT 1")
+
+	return err
+	
+}
+
 
 //*****************************************************************************************
 //	Lets create our tables!!!
 //*****************************************************************************************
 //*****************************************************************************************
-//	Lets create our tables!!!
+//	Lets create our DB????
 //*****************************************************************************************
 func CreateLachesisDB() error {
 	// can we do this with PostGres????
@@ -839,17 +1046,13 @@ func CreateLachesisDB() error {
 func CreateAccounts() error {
 
 	q := `	CREATE TABLE accounts (
- 				account VARCHAR (70),
+ 				account VARCHAR (70) UNIQUE,
  				address VARCHAR (70),
  				balance REAL,
- 				publicKey VARCHAR (70),
- 				privateKey VARCHAR (70),
- 				account_datetime VARCHAR (50)
+ 				account_datetime TIMESTAMP
 			);`
 	
 	_, err := Ppgsql.Exec(q)
-
-//	fmt.Println("accounts: ", err)
 	
 	return err
 }
@@ -860,17 +1063,35 @@ func CreateAccounts() error {
 func CreateTransaction() error {
 	
 	q := `	CREATE TABLE transactions (
- 				transaction VARCHAR (70),
- 				tx_from VARCHAR (70),
- 				tx_to VARCHAR (70),
- 				tx_value REAL,
- 				transactionblockid VARCHAR (70),
- 				transaction_datetime VARCHAR (50)
+ 				transaction 		VARCHAR (70) UNIQUE,
+ 				tx_from 			VARCHAR (70),
+ 				tx_to 				VARCHAR (70),
+ 				tx_value 			REAL,
+				Gas               	BIGINT,
+				GasUsed           	BIGINT,  
+				GasPrice          	BIGINT,   
+ 				transaction_datetime TIMESTAMP
 			);`
+
+  
 	
 	_, err := Ppgsql.Exec(q)
+	
+	return err
+}
 
-//	fmt.Println("transactions: ", err)
+//*****************************************************************************************
+//	Lets create our tables!!!
+//*****************************************************************************************
+func CreateBlockTransaction() error {
+	
+	q := `	CREATE TABLE blocktransactions (
+ 				transaction VARCHAR (70) UNIQUE,
+ 				transactionblockid VARCHAR (70),
+ 				transaction_datetime TIMESTAMP
+			);`
+  
+	_, err := Ppgsql.Exec(q)
 	
 	return err
 }
@@ -883,14 +1104,10 @@ func CreateAccountTrans() error {
 	q := `	CREATE TABLE accounttransactions (
  				account VARCHAR (70),
  				transaction VARCHAR (70),
- 				at_DateTime VARCHAR (50)
+ 				at_DateTime TIMESTAMP
 			);`	
- 				// address VARCHAR (50),    <--  removed as account should be sufficient
-
 
 	_, err := Ppgsql.Exec(q)
-
-//	fmt.Println("accounttransactions: ", err)
 	
 	return err
 }
@@ -901,18 +1118,16 @@ func CreateAccountTrans() error {
 func CreateBlock() error {
 	
 	q := `	CREATE TABLE blocks (
- 				blockIndex int,
+ 				blockIndex INTEGER UNIQUE,
  				framehash VARCHAR (70),
  				block_miner VARCHAR (70),
  				transactionblockid VARCHAR (70),
- 				transactionblockcount int,
+ 				transactionblockcount INTEGER,
  				block_reward REAL,
- 				block_datetime VARCHAR (50)
+ 				block_datetime TIMESTAMP 
 			);`
 	
 	_, err := Ppgsql.Exec(q)
-
-//	fmt.Println("block: ", err)
 	
 	return err
 }
@@ -924,19 +1139,18 @@ func CreateBlock() error {
 func CreateSummary() error {
 	
 	q := `	CREATE TABLE summary (
- 				market_cap float?,
- 				BTC_ETH float?,
- 				lastblockno int64,
- 				hashrate float?,
- 				transactions VARCHAR (50)
- 				network_difficulty VARCHAR (50)
- 				lastupdate_DateTime VARCHAR (50)
- 				lastread_DateTime VARCHAR (50)
+ 				market_cap REAL,
+ 				BTC_ETH_amount REAL,
+ 				BTC_ETH_at REAL,
+ 				BTC_ETH_movement REAL,
+ 				lastblockno INTEGER,
+ 				hashrate REAL,
+ 				transactions REAL,
+ 				network_difficulty REAL,
+ 				lastUpdate TIMESTAMP
 			);`
 	
 	_, err := Ppgsql.Exec(q)
-
-//	fmt.Println("block: ", err)
 	
 	return err
 }
@@ -953,6 +1167,8 @@ func DropAllTables() error {
 	err := DropAccounts()
 	fmt.Println("err", err)
 	err = DropTransaction()
+	fmt.Println("err", err)
+	err = DropBlockTransaction()
 	fmt.Println("err", err)
 	err = DropAccountTrans()
 	fmt.Println("err", err)
@@ -977,6 +1193,15 @@ func DropAccounts() error {
 	return err
 }
 
+//*****************************************************************************************
+//	Drop transactions table
+//*****************************************************************************************
+func DropBlockTransaction() error {
+	_, err := Ppgsql.Exec("DROP TABLE transactions")
+
+	return err
+	
+}
 //*****************************************************************************************
 //	Drop transactions table
 //*****************************************************************************************
